@@ -8,15 +8,16 @@ interface Props {
 }
 
 function Story({ toggle, setToggle }: Props) {
-    const [videoFiles, setVideoFiles] = useState<File[]>([]);
-    const [videoURLs, setVideoURLs] = useState<string[]>([]);
+    const [videoURLs, setVideoURLs] = useState<string[]>([
+        '/videos/video1.mp4', // Example video file in the public folder
+        '/videos/video2.mp4', // Another example video file in the public folder
+    ]);
     const [videoDurations, setVideoDurations] = useState<number[]>([]); // Store durations for each video
-    const fileInputRef = useRef<HTMLInputElement | null>(null);
-    const [error, setError] = useState('');
-    const [isPlaying, setIsPlaying] = useState(false);
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const progressRefs = useRef<HTMLDivElement[]>([]); // Keep references for multiple progress bars
     const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [error, setError] = useState('');
 
     useEffect(() => {
         // Cleanup when component unmounts or videoURLs changes
@@ -35,53 +36,22 @@ function Story({ toggle, setToggle }: Props) {
             }
             resetStates();
         } else if (toggle) {
-            if (videoRef.current) {
+            // Play video if not already playing
+            if (videoRef.current && !isPlaying) {
                 videoRef.current.play();
-                videoRef.current.currentTime = 0;
+                setIsPlaying(true);
+                videoRef.current.currentTime = 0; // Restart the video when toggle is set to true
             }
             resetStates();
         }
     }, [toggle]);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        e.preventDefault();
-        const files = e.target.files;
-        if (!files) return;
-
-        setError('');
-        resetStates();
-
-        const validFiles: File[] = [];
-        const validURLs: string[] = [];
-        const durations: number[] = [];
-
-        Array.from(files).forEach((file) => {
-            const isVideo = file.type.startsWith("video/") ||
-                file.type === 'video/x-matroska' ||
-                file.name.toLowerCase().endsWith('.mkv');
-
-            if (isVideo) {
-                validFiles.push(file);
-                validURLs.push(URL.createObjectURL(file));
-                durations.push(0); // Add a default duration to track it
-            } else {
-                setError('Some files were not valid video files (MP4, MOV, MKV)');
-            }
-        });
-
-        // Append new videos to existing state
-        setVideoFiles((prevFiles) => [...prevFiles, ...validFiles]);
-        setVideoURLs((prevURLs) => [...prevURLs, ...validURLs]);
-        setVideoDurations((prevDurations) => [...prevDurations, ...durations]);
-        setCurrentVideoIndex(0);  // Start with the first video after upload
-    };
-
-
     const resetStates = () => {
         setIsPlaying(false);
+        // Reset the progress bar before transitioning to the next video
         if (progressRefs.current[currentVideoIndex]) {
             progressRefs.current[currentVideoIndex].style.width = '0%';
-            progressRefs.current[currentVideoIndex].style.transition = 'none';
+            progressRefs.current[currentVideoIndex].style.transition = 'none'; // Remove transition for resetting
         }
     };
 
@@ -104,9 +74,10 @@ function Story({ toggle, setToggle }: Props) {
     const handleVideoEnded = () => {
         if (currentVideoIndex < videoURLs.length - 1) {
             setCurrentVideoIndex(prev => prev + 1);
+            // Reset progress bar before changing to the next video
             if (progressRefs.current[currentVideoIndex]) {
                 progressRefs.current[currentVideoIndex].style.width = '0%';
-                progressRefs.current[currentVideoIndex].style.transition = 'none';
+                progressRefs.current[currentVideoIndex].style.transition = 'none'; // Reset transition
             }
         } else {
             // Do not change toggle state on video end (unless you want to close the player)
@@ -121,6 +92,9 @@ function Story({ toggle, setToggle }: Props) {
             progressRefs.current[currentVideoIndex].style.width = `${progress}%`;
         }
     };
+    useEffect(() => {
+
+    }, [])
 
     useEffect(() => {
         // Start tracking video progress
@@ -151,8 +125,6 @@ function Story({ toggle, setToggle }: Props) {
         };
     }, [videoDurations, currentVideoIndex]);
 
-    console.log('videoURLs', videoURLs)
-
     return (
         <>
             <div
@@ -163,7 +135,7 @@ function Story({ toggle, setToggle }: Props) {
                 className={`absolute bg-[rgba(0,0,0,0.5)] inset-0 ${toggle ? 'flex' : 'hidden'} justify-center`}
             >
                 <div className='relative w-[400px] h-screen bg-black flex justify-center items-center cursor-pointer'>
-                    {videoFiles.length > 0 ? (
+                    {videoURLs.length > 0 ? (
                         <>
                             {/* Video Progress Bars */}
                             <div dir='rtl' className='absolute top-0 inset-x-0 p-4'>
@@ -181,7 +153,6 @@ function Story({ toggle, setToggle }: Props) {
                                             />
                                         ))
                                     }
-
                                 </div>
                             </div>
 
@@ -199,7 +170,7 @@ function Story({ toggle, setToggle }: Props) {
                                 >
                                     <source
                                         src={videoURLs[currentVideoIndex]}
-                                        type={videoFiles[currentVideoIndex]?.type || 'video/x-matroska'}
+                                        type="video/mp4"  // Assuming all videos are mp4
                                     />
                                     Your browser does not support video playback
                                 </video>
@@ -224,7 +195,7 @@ function Story({ toggle, setToggle }: Props) {
                             </div>
                         </>
                     ) : (
-                        <span className='text-white'>Click to upload</span>
+                        <span className='text-white'>No videos available</span>
                     )}
 
                     <div dir='rtl' className='absolute bottom-0 inset-x-0 p-4'>
@@ -237,29 +208,14 @@ function Story({ toggle, setToggle }: Props) {
                         </div>
                     </div>
 
-                    {error && (
-                        <div className='absolute bottom-4 text-red-500 text-sm bg-white px-4 py-2 rounded'>
-                            {error}
-                        </div>
-                    )}
+                    {
+                        error && (
+                            <div className='absolute bottom-4 text-red-500 text-sm bg-white px-4 py-2 rounded'>
+                                {error}
+                            </div>
+                        )
+                    }
                 </div>
-            </div>
-            <input
-                type="file"
-                accept="video/*, video/x-matroska"
-                onChange={handleFileChange}
-                ref={fileInputRef}
-                className='hidden'
-                multiple
-            />
-            <div
-                className='p-2 rounded-lg bg-blue-400 text-white'
-                onClick={(e) => {
-                    e.stopPropagation();
-                    fileInputRef.current?.click();
-                }}
-            >
-                upload your video
             </div>
         </>
     );
